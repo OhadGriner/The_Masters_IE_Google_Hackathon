@@ -12,4 +12,5 @@ dependencies = [
     "pyautogui>=0.9.54",
     "pyopengl>=3.1.10",
     "pyqt5>=5.15.11",
+    "scipy>=1.13.1",
 ]
