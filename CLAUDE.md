@@ -18,27 +18,50 @@ source .venv/bin/activate
 ## Running
 
 ```bash
+# Standalone gaze debug tool (opens OpenCV windows, moves mouse)
 python MonitorTracking.py
+
+# Gaze-tracking game
+python main.py
 ```
 
-Requires a connected webcam and a display. The script opens two OpenCV windows and moves the mouse based on head pose.
+Both require a connected webcam. To test the game without a camera, swap one import in `main.py` (see comment there).
 
-## Runtime controls
+## Game controls
 
 | Key | Action |
 |-----|--------|
-| `q` | Quit |
-| `c` | Calibrate — sets current head pose as "center" (zeroes yaw/pitch offsets) |
-| `F7` | Toggle mouse control on/off |
+| `C` | Calibrate — sets current head pose as screen center |
+| `Esc` | Quit |
 
 ## Architecture
 
-`MonitorTracking.py` is the entire application — a single-file, single-process program:
+### MonitorTracking.py
+Single-file standalone script. Opens two OpenCV windows and moves the system mouse based on head pose. Not imported by the game — it exists as an independent debug tool.
 
 1. **MediaPipe Face Mesh** detects 468 3D facial landmarks from the webcam feed.
-2. **Head pose estimation** — five key landmarks (`left`=234, `right`=454, `top`=10, `bottom`=152, `front`=1) define a right/up/forward orthonormal basis. A wireframe bounding cube is projected onto the frame for visualization.
-3. **Smoothing** — the last `filter_length` (default 8) ray origins and directions are averaged via `deque` buffers to reduce jitter.
-4. **Angle → screen mapping** — yaw and pitch are extracted from the smoothed forward axis and linearly mapped to screen coordinates. `yawDegrees=20` and `pitchDegrees=10` define the angular range that spans the full screen width/height. Calibration offsets shift this mapping so the current pose becomes center.
-5. **Mouse mover thread** — a daemon thread calls `pyautogui.moveTo` at ~100 Hz, reading from `mouse_target` under a lock, decoupled from the main camera loop.
+2. **Head pose estimation** — five key landmarks (`left`=234, `right`=454, `top`=10, `bottom`=152, `front`=1) define a right/up/forward orthonormal basis.
+3. **Smoothing** — last 8 ray origins/directions averaged via `deque` to reduce jitter.
+4. **Angle → screen mapping** — `yawDegrees=20` and `pitchDegrees=10` define the angular range spanning the full screen.
 
-The coordinate convention after normalization: yaw 180° = straight ahead, <180° = left, >180° = right; pitch 180° = straight ahead, <180° = down, >180° = up.
+Coordinate convention: yaw/pitch 180° = straight ahead; <180° = left/down, >180° = right/up.
+
+### game/ — three-layer architecture
+
+```
+GazeProvider  →  GameEngine  →  GameRenderer
+(gaze_providers/)  (engine/)    (renderer/)
+```
+
+**Gaze layer** (`game/gaze_providers/`)
+- `GazeProvider` ABC: `start()`, `stop()`, `get_gaze_position() -> (x, y)`, `calibrate()`.
+- `MediaPipeGazeProvider` — ports MonitorTracking.py pipeline into a class; runs in a daemon thread; does NOT open any windows or move the mouse.
+- `MouseGazeProvider` — reads `pyautogui.position()`; no threads; useful for testing.
+
+**Engine** (`game/engine/`)
+- `GameState` / `Target` — plain dataclasses, no logic.
+- `GameEngine.update(dt)` — advances a Lissajous path (`ωx=0.7`, `ωy=0.5` rad/s) for the target, reads gaze position, increments `score` (frame count) while gaze is within `target.radius`.
+
+**Renderer** (`game/renderer/`)
+- `GameRenderer` ABC: `start(gaze_provider)` — responsible for creating `QApplication`, reading real screen dimensions, constructing `GameEngine`, and running the event loop.
+- `PyQtRenderer` — fullscreen `QMainWindow`; `QTimer` at ~60 fps drives `engine.update(dt)` + repaint. Draws target (orange → green when hit), gaze crosshair, score in seconds.
