@@ -51,10 +51,16 @@ class _GameWidget(QWidget):
         self._last_score: int = 0
         self._score_pop_t: float = -99.0   # time of last score change (for pop anim)
         self._last_countdown_num: int = -1
+        self._last_bonus_image: str = ""
 
         self._countdown_player = QMediaPlayer(self)
         self._countdown_player.setMedia(
             QMediaContent(QUrl.fromLocalFile(str(ASSETS_DIR / "countdown.mp3")))
+        )
+
+        self._popping_player = QMediaPlayer(self)
+        self._popping_player.setMedia(
+            QMediaContent(QUrl.fromLocalFile(str(ASSETS_DIR / "popping.mp3")))
         )
 
         pix = QPixmap(str(TARGET_IMAGE))
@@ -85,6 +91,11 @@ class _GameWidget(QWidget):
                 self._countdown_player.play()
         else:
             self._last_countdown_num = -1
+
+        if state.bonus_active and state.bonus_image_path != self._last_bonus_image:
+            self._popping_player.stop()
+            self._popping_player.play()
+        self._last_bonus_image = state.bonus_image_path
 
         if state.score != self._last_score:
             self._score_pop_t = self._anim_t
