@@ -83,6 +83,20 @@ _SENDERS = [
     ("Ingrid Tattersall",  "IT", QColor(201, 106,  45)),
 ]
 
+# ── Google Slides palette ─────────────────────────────────────────────────────
+_S_BG          = QColor(250, 249, 248)
+_S_TOPBAR_BG   = QColor(255, 255, 255)
+_S_YELLOW      = QColor(251, 188,   5)
+_S_TOPBAR_H    = 64
+_S_TOOLBAR_H   = 40
+_S_PANEL_W     = 220
+_S_STATUS_H    = 28
+_S_GREY        = QColor( 95,  99, 104)
+_S_GREY_L      = QColor(218, 220, 224)
+_S_INK         = QColor( 32,  33,  36)
+_S_CANVAS_BG   = QColor(240, 240, 240)
+_S_SLIDE_SHADOW = QColor(  0,   0,   0, 50)
+
 # ── Gmail palette & data ──────────────────────────────────────────────────────
 _G_BG       = QColor(246, 248, 252)
 _G_BLUE     = QColor(26,  115, 232)
@@ -214,6 +228,7 @@ class _GameWidget(QWidget):
         self._popup_sender_idx: int = 0
         self._start_btn_rect: QRect = QRect()
         self._level_transition: float = 0.0
+        self._level_transition_23: float = 0.0
         self._popup_x: int = 0
         self._popup_y: int = 0
         self._inbox: list = list(_GMAIL_EMAILS[:2])
@@ -225,6 +240,8 @@ class _GameWidget(QWidget):
         self._target_pixmap = _pix if not _pix.isNull() else None
         _gpix = _QPixmap(str(ASSETS_DIR / "gmail_logo.webp"))
         self._gmail_logo_pixmap = _gpix if not _gpix.isNull() else None
+        _spix = _QPixmap(str(ASSETS_DIR / "slide.png"))
+        self._slide_pixmap = _spix if not _spix.isNull() else None
 
         self._countdown_player = QMediaPlayer(self)
         self._countdown_player.setMedia(
@@ -280,9 +297,11 @@ class _GameWidget(QWidget):
         self._engine.update(dt)
         state = self._engine.state
 
-        # Advance level transition (1.5 s crossfade)
-        if state.level == 2 and self._level_transition < 1.0:
+        # Advance level transitions (1.5 s crossfade each)
+        if state.level >= 2 and self._level_transition < 1.0:
             self._level_transition = min(1.0, self._level_transition + dt / 1.5)
+        if state.level >= 3 and self._level_transition_23 < 1.0:
+            self._level_transition_23 = min(1.0, self._level_transition_23 + dt / 1.5)
 
         # Drip new inbox messages during Gmail level
         if self._level_transition > 0.0:
@@ -357,6 +376,7 @@ class _GameWidget(QWidget):
             self._last_tick = time.perf_counter()
             self._last_bonus_phrase = ""
             self._level_transition = 0.0
+            self._level_transition_23 = 0.0
             self._inbox = list(_GMAIL_EMAILS[:2])
             self._inbox_next_idx = 2
             self._next_email_in = random.uniform(3, 10)
@@ -401,21 +421,28 @@ class _GameWidget(QWidget):
     # ── Background: spreadsheet ───────────────────────────────────────────
 
     def _draw_background(self, p: QPainter, w: int, h: int) -> None:
-        tr = self._level_transition
-        # Level 1 background (spreadsheet)
-        if tr < 1.0:
+        tr12 = self._level_transition
+        tr23 = self._level_transition_23
+        # Level 1 (spreadsheet): opacity = 1 - tr12
+        if tr12 < 1.0:
             p.save()
-            p.setOpacity(1.0 - tr)
+            p.setOpacity(1.0 - tr12)
             p.fillRect(0, 0, w, h, _C_CANVAS)
             self._draw_sheet_chrome(p, w, h)
             self._draw_sheet_grid(p, w, h)
             self._draw_sheet_tabs(p, w, h)
             p.restore()
-        # Level 2 background (Gmail)
-        if tr > 0.0:
+        # Level 2 (Gmail): opacity = tr12 * (1 - tr23)
+        if tr12 > 0.0 and tr23 < 1.0:
             p.save()
-            p.setOpacity(tr)
+            p.setOpacity(tr12 * (1.0 - tr23))
             self._draw_gmail_bg(p, w, h)
+            p.restore()
+        # Level 3 (Slides): opacity = tr23
+        if tr23 > 0.0:
+            p.save()
+            p.setOpacity(tr23)
+            self._draw_slides_bg(p, w, h)
             p.restore()
 
     def _draw_sheet_chrome(self, p: QPainter, w: int, h: int) -> None:
@@ -651,6 +678,212 @@ class _GameWidget(QWidget):
         p.setFont(_font(10, bold=False))
         p.drawText(QRect(w - 200, tab_y, 190, _TABS_H), Qt.AlignRight | Qt.AlignVCenter,
                    "847 rows  ·  autosaved 4m ago")
+
+    # ── Background: Google Slides ────────────────────────────────────────
+
+    def _draw_slides_bg(self, p: QPainter, w: int, h: int) -> None:
+        p.fillRect(0, 0, w, h, _S_BG)
+        self._draw_slides_topbar(p, w)
+        self._draw_slides_toolbar(p, w)
+        self._draw_slides_main(p, w, h)
+        self._draw_slides_statusbar(p, w, h)
+
+    def _draw_slides_topbar(self, p: QPainter, w: int) -> None:
+        p.fillRect(0, 0, w, _S_TOPBAR_H, _S_TOPBAR_BG)
+        p.setPen(QPen(_S_GREY_L, 1))
+        p.drawLine(0, _S_TOPBAR_H - 1, w, _S_TOPBAR_H - 1)
+
+        # Slides logo: yellow rectangle + "Slides"
+        lx, ly = 16, (_S_TOPBAR_H - 36) // 2
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(_S_YELLOW))
+        p.drawRoundedRect(lx, ly, 28, 36, 3, 3)
+        # white lines to simulate slide stripes
+        p.setPen(QPen(QColor(255, 255, 255, 180), 2))
+        for i in range(3):
+            yy = ly + 8 + i * 8
+            p.drawLine(lx + 5, yy, lx + 23, yy)
+        # "Slides" text
+        p.setPen(_S_GREY)
+        p.setFont(_font(16, bold=False))
+        p.drawText(QRect(lx + 34, 0, 80, _S_TOPBAR_H), Qt.AlignLeft | Qt.AlignVCenter, "Slides")
+
+        # File name
+        p.setPen(_S_INK)
+        p.setFont(_font(13, bold=False))
+        p.drawText(QRect(lx + 120, 4, 460, 20), Qt.AlignLeft | Qt.AlignVCenter,
+                   "Q3_Leadership_Alignment_Deck_FINAL_v4.pptx")
+        p.setPen(_S_GREY)
+        p.setFont(_font(10, bold=False))
+        menu_items = ["File", "Edit", "View", "Insert", "Format", "Slide", "Arrange", "Tools", "Help"]
+        mx = lx + 120
+        for item in menu_items:
+            p.setFont(_font(11, bold=False))
+            fm = p.fontMetrics()
+            iw = fm.horizontalAdvance(item) + 16
+            p.setPen(_S_GREY)
+            p.drawText(QRect(mx, 24, iw, 18), Qt.AlignCenter, item)
+            mx += iw
+
+        # Right: Share + avatar
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(_G_BLUE))
+        p.drawRoundedRect(w - 90, 14, 64, 26, 13, 13)
+        p.setPen(QColor(255, 255, 255))
+        p.setFont(_font(11, bold=True))
+        p.drawText(QRect(w - 90, 14, 64, 26), Qt.AlignCenter, "Share")
+
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(QColor(124, 91, 209)))
+        p.drawEllipse(w - 136, 12, 30, 30)
+        p.setPen(QColor(255, 255, 255))
+        p.setFont(_font(10, bold=True))
+        p.drawText(QRect(w - 136, 12, 30, 30), Qt.AlignCenter, "KP")
+
+    def _draw_slides_toolbar(self, p: QPainter, w: int) -> None:
+        ty = _S_TOPBAR_H
+        p.fillRect(0, ty, w, _S_TOOLBAR_H, _S_TOPBAR_BG)
+        p.setPen(QPen(_S_GREY_L, 1))
+        p.drawLine(0, ty + _S_TOOLBAR_H - 1, w, ty + _S_TOOLBAR_H - 1)
+
+        tools = ["↩", "↪", "🖨", "100%", "|", "T", "▭", "⬡", "↗", "🖼", "♫", "▶", "|",
+                 "B", "I", "U", "A▾", "≡", "≡", "≡", "|", "⬚"]
+        tx = 14
+        p.setFont(_font(11, bold=False))
+        for item in tools:
+            if item == "|":
+                p.setPen(QPen(_S_GREY_L, 1))
+                p.drawLine(tx + 4, ty + 8, tx + 4, ty + _S_TOOLBAR_H - 8)
+                tx += 12
+                continue
+            fm = p.fontMetrics()
+            iw = max(28, fm.horizontalAdvance(item) + 14)
+            p.setPen(_S_GREY)
+            p.drawText(QRect(tx, ty, iw, _S_TOOLBAR_H), Qt.AlignCenter, item)
+            tx += iw
+            if tx > w - 60:
+                break
+
+        # Presenter view label (right)
+        p.setPen(_S_GREY)
+        p.setFont(_font(11, bold=False))
+        p.drawText(QRect(w - 160, ty, 150, _S_TOOLBAR_H), Qt.AlignRight | Qt.AlignVCenter,
+                   "Slideshow ▾")
+
+    def _draw_slides_main(self, p: QPainter, w: int, h: int) -> None:
+        content_top = _S_TOPBAR_H + _S_TOOLBAR_H
+        content_h = h - content_top - _S_STATUS_H
+
+        # ── Left thumbnail panel ──────────────────────────────────────────
+        p.fillRect(0, content_top, _S_PANEL_W, content_h, QColor(248, 247, 247))
+        p.setPen(QPen(_S_GREY_L, 1))
+        p.drawLine(_S_PANEL_W, content_top, _S_PANEL_W, content_top + content_h)
+
+        thumb_labels = [
+            "Alignment Summit", "The Problem Space", "Our Solution",
+            "Road to Synergy", "KPIs & Metrics", "Risk Matrix", "Next Steps",
+        ]
+        tw, th = _S_PANEL_W - 24, 80
+        tx2 = 12
+        ty2 = content_top + 12
+        for i, label in enumerate(thumb_labels):
+            is_active = (i == 2)
+            # selection border
+            if is_active:
+                p.setPen(Qt.NoPen)
+                p.setBrush(QBrush(QColor(66, 133, 244, 50)))
+                p.drawRoundedRect(tx2 - 4, ty2 - 4, tw + 8, th + 8, 4, 4)
+                p.setPen(QPen(_G_BLUE, 2))
+                p.setBrush(Qt.NoBrush)
+                p.drawRoundedRect(tx2 - 4, ty2 - 4, tw + 8, th + 8, 4, 4)
+            # thumbnail
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(QColor(255, 255, 255)))
+            p.drawRect(tx2, ty2, tw, th)
+            if is_active and self._slide_pixmap:
+                from PyQt5.QtCore import Qt as _Qt
+                scaled = self._slide_pixmap.scaled(tw, th, _Qt.KeepAspectRatioByExpanding,
+                                                   _Qt.SmoothTransformation)
+                p.setClipRect(tx2, ty2, tw, th)
+                p.drawPixmap(tx2, ty2, scaled)
+                p.setClipRect(0, 0, self.width(), self.height())
+            else:
+                p.setPen(_S_GREY_L)
+                p.setFont(_font(8, bold=False))
+                p.drawText(QRect(tx2, ty2, tw, th), Qt.AlignCenter, label)
+            # slide number
+            p.setPen(_S_GREY)
+            p.setFont(_font(9, bold=False))
+            p.drawText(QRect(0, ty2, tx2 - 2, th), Qt.AlignRight | Qt.AlignVCenter, str(i + 1))
+            ty2 += th + 8
+            if ty2 + th > content_top + content_h:
+                break
+
+        # ── Main slide canvas ─────────────────────────────────────────────
+        canvas_x = _S_PANEL_W
+        canvas_w = w - canvas_x
+        canvas_cx = canvas_x + canvas_w // 2
+
+        # 16:9 slide sizing — fit within available space with padding
+        pad = 48
+        avail_w = canvas_w - pad * 2
+        avail_h = content_h - pad * 2
+        slide_w = avail_w
+        slide_h = int(slide_w * 9 / 16)
+        if slide_h > avail_h:
+            slide_h = avail_h
+            slide_w = int(slide_h * 16 / 9)
+        slide_x = canvas_cx - slide_w // 2
+        slide_y = content_top + (content_h - slide_h) // 2
+
+        # Canvas background
+        p.fillRect(canvas_x, content_top, canvas_w, content_h, _S_CANVAS_BG)
+
+        # Drop shadow
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(_S_SLIDE_SHADOW))
+        p.drawRect(slide_x + 6, slide_y + 6, slide_w, slide_h)
+
+        # Slide white background
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(QColor(255, 255, 255)))
+        p.drawRect(slide_x, slide_y, slide_w, slide_h)
+
+        # Slide content (slide.png)
+        if self._slide_pixmap:
+            from PyQt5.QtCore import Qt as _Qt
+            scaled = self._slide_pixmap.scaled(slide_w, slide_h, _Qt.IgnoreAspectRatio,
+                                               _Qt.SmoothTransformation)
+            p.setClipRect(slide_x, slide_y, slide_w, slide_h)
+            p.drawPixmap(slide_x, slide_y, scaled)
+            p.setClipRect(0, 0, self.width(), self.height())
+        else:
+            # Fallback placeholder slide
+            p.setPen(_S_INK)
+            p.setFont(_font(24, bold=True))
+            p.drawText(QRect(slide_x, slide_y, slide_w, slide_h // 2),
+                       Qt.AlignCenter, "Q3 Leadership Alignment")
+            p.setFont(_font(14, bold=False))
+            p.setPen(_S_GREY)
+            p.drawText(QRect(slide_x, slide_y + slide_h // 2, slide_w, slide_h // 2),
+                       Qt.AlignCenter, "Dept. of Productivity  ·  Confidential")
+
+        # Slide border
+        p.setPen(QPen(_S_GREY_L, 1))
+        p.setBrush(Qt.NoBrush)
+        p.drawRect(slide_x, slide_y, slide_w, slide_h)
+
+    def _draw_slides_statusbar(self, p: QPainter, w: int, h: int) -> None:
+        sy = h - _S_STATUS_H
+        p.fillRect(0, sy, w, _S_STATUS_H, _S_TOPBAR_BG)
+        p.setPen(QPen(_S_GREY_L, 1))
+        p.drawLine(0, sy, w, sy)
+        p.setPen(_S_GREY)
+        p.setFont(_font(10, bold=False))
+        p.drawText(QRect(16, sy, 300, _S_STATUS_H), Qt.AlignLeft | Qt.AlignVCenter,
+                   "Slide 3 of 7  ·  Speaker notes hidden")
+        p.drawText(QRect(w - 260, sy, 244, _S_STATUS_H), Qt.AlignRight | Qt.AlignVCenter,
+                   "⊞ Present  ·  100%  ·  ⚙")
 
     # ── Background: Gmail ────────────────────────────────────────────────
 

@@ -139,6 +139,8 @@ class GameEngine:
             state.score = int(self._tracking_acc) + self._bonus_score
             if state.level == 1 and state.score >= 30:
                 state.level = 2
+            elif state.level == 2 and state.score >= 40:
+                state.level = 3
         else:
             self._drift_s += dt
             if self._drift_s >= _LOOKAWAY_FIRE_S:
