@@ -214,10 +214,14 @@ class _GameWidget(QWidget):
         self._popup_sender_idx: int = 0
         self._start_btn_rect: QRect = QRect()
         self._level_transition: float = 0.0
+        self._popup_x: int = 0
+        self._popup_y: int = 0
 
         from PyQt5.QtGui import QPixmap as _QPixmap
         _pix = _QPixmap(str(ASSETS_DIR / "target.png"))
         self._target_pixmap = _pix if not _pix.isNull() else None
+        _gpix = _QPixmap(str(ASSETS_DIR / "gmail_logo.webp"))
+        self._gmail_logo_pixmap = _gpix if not _gpix.isNull() else None
 
         self._countdown_player = QMediaPlayer(self)
         self._countdown_player.setMedia(
@@ -270,6 +274,7 @@ class _GameWidget(QWidget):
         if state.bonus_phrase != self._last_bonus_phrase and state.bonus_phrase:
             self._popup_sender_idx = random.randrange(len(_SENDERS))
             self._last_bonus_phrase = state.bonus_phrase
+            self._popup_x, self._popup_y = self._pick_popup_pos(state)
             self._popping_player.stop()
             self._popping_player.play()
 
@@ -616,12 +621,20 @@ class _GameWidget(QWidget):
         for i in range(3):
             p.drawLine(18, 22 + i * 8, 38, 22 + i * 8)
 
-        # "Gmail" logo — G in red, rest grey
-        p.setFont(_font(20, bold=False))
-        p.setPen(_G_RED)
-        p.drawText(QRect(52, 0, 22, _G_TOPBAR_H), Qt.AlignLeft | Qt.AlignVCenter, "G")
-        p.setPen(_G_GREY)
-        p.drawText(QRect(74, 0, 56, _G_TOPBAR_H), Qt.AlignLeft | Qt.AlignVCenter, "mail")
+        # Gmail logo image
+        logo_size = 40
+        logo_y = (_G_TOPBAR_H - logo_size) // 2
+        if self._gmail_logo_pixmap:
+            from PyQt5.QtCore import Qt as _Qt
+            scaled = self._gmail_logo_pixmap.scaled(
+                logo_size, logo_size, _Qt.KeepAspectRatio, _Qt.SmoothTransformation)
+            p.drawPixmap(50, logo_y, scaled)
+        else:
+            p.setFont(_font(20, bold=False))
+            p.setPen(_G_RED)
+            p.drawText(QRect(52, 0, 22, _G_TOPBAR_H), Qt.AlignLeft | Qt.AlignVCenter, "G")
+            p.setPen(_G_GREY)
+            p.drawText(QRect(74, 0, 56, _G_TOPBAR_H), Qt.AlignLeft | Qt.AlignVCenter, "mail")
 
         # Search bar (centered)
         sb_w = min(640, w - 480)
@@ -918,10 +931,27 @@ class _GameWidget(QWidget):
 
     # ── Bonus deliverable popup ────────────────────────────────────────────
 
+    def _pick_popup_pos(self, state: GameState) -> tuple:
+        pw, ph = 320, 195
+        w, h = self.width(), self.height()
+        x_min, x_max = 20, max(20, w - pw - 20)
+        y_min, y_max = 120, max(120, h - ph - 20)
+        tx, ty = state.target.x, state.target.y
+        for _ in range(40):
+            x = random.randint(x_min, x_max)
+            y = random.randint(y_min, y_max)
+            # Keep away from target centre
+            if math.hypot(x + pw // 2 - tx, y + ph // 2 - ty) < 260:
+                continue
+            # Keep away from previous popup position
+            if math.hypot(x - self._popup_x, y - self._popup_y) < 220:
+                continue
+            return x, y
+        return x_min, y_min
+
     def _draw_popup(self, p: QPainter, state: GameState, w: int, h: int, t: float) -> None:
         pw, ph = 320, 195
-        px = w - pw - 28
-        py = _CHROME_H + 14
+        px, py = self._popup_x, self._popup_y
 
         name, initials, av_color = _SENDERS[self._popup_sender_idx]
 
