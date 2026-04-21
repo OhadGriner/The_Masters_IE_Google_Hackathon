@@ -11,27 +11,43 @@ _AMPLITUDE_FRACTION = 0.78
 _COUNTDOWN_START = 3.0
 _LOOKAWAY_FIRE_S = 3.0  # seconds of continuous drift before termination
 
-_BUZZ_PHRASES = [
-    "Let's take this offline",
-    "Circle back on that",
+_BUZZ_L1 = [
+    "Synergy",
+    "Bandwidth",
+    "Deliverables",
+    "Pivot",
+    "Alignment",
+]
+
+_BUZZ_L2 = [
+    "Reach out",
+    "Touch base",
+    "Quick wins",
+    "Deep dive",
+    "Hard stop",
+    "Going forward",
     "Move the needle",
     "It is what it is",
-    "Per my last email",
-    "Synergy",
+]
+
+_BUZZ_L3 = [
     "Low-hanging fruit",
     "Boil the ocean",
+    "Per my last email",
+    "Let's park that",
+    "Circle back on that",
     "Hard stop at 3",
     "Let's put a pin in it",
-    "Bandwidth",
-    "Quick wins",
-    "Touch base",
-    "Going forward",
-    "Reach out",
-    "At the end of the day",
-    "Deep dive",
-    "Think outside the box",
-    "Game changer",
-    "Leverage our core competencies",
+    "Take this offline",
+    "On my radar",
+    "Drink the Kool-Aid",
+    "Peel back the onion",
+    "Let's not boil the ocean",
+    "We need to be more agile",
+    "Let's take this offline",
+    "Lots of moving parts here",
+    "We need to align on this",
+    "Let's get all our ducks in a row",
 ]
 
 
@@ -95,9 +111,13 @@ class GameEngine:
             self._next_phrase()
         state.bonus_input = ""
 
+    def _phrases(self) -> list:
+        return {1: _BUZZ_L1, 2: _BUZZ_L2, 3: _BUZZ_L3}.get(self._state.level, _BUZZ_L1)
+
     def _next_phrase(self) -> None:
-        self._bonus_index = (self._bonus_index + 1) % len(_BUZZ_PHRASES)
-        self._state.bonus_phrase = _BUZZ_PHRASES[self._bonus_index]
+        pool = self._phrases()
+        self._bonus_index = (self._bonus_index + 1) % len(pool)
+        self._state.bonus_phrase = pool[self._bonus_index]
 
     # ── Main update loop ──────────────────────────────────────────────────
 
@@ -137,9 +157,9 @@ class GameEngine:
             self._drift_s = max(0.0, self._drift_s - dt * 2)
             self._tracking_acc += dt
             state.score = int(self._tracking_acc) + self._bonus_score
-            if state.level == 1 and state.score >= 30:
+            if state.level == 1 and state.score >= 100:
                 state.level = 2
-            elif state.level == 2 and state.score >= 40:
+            elif state.level == 2 and state.score >= 200:
                 state.level = 3
         else:
             self._drift_s += dt
@@ -150,12 +170,11 @@ class GameEngine:
 
         state.drift_pct = min(1.0, self._drift_s / _LOOKAWAY_FIRE_S)
 
-        if (not state.bonus_active
-                and self._elapsed >= BONUS_APPEAR_AFTER
-                and _BUZZ_PHRASES):
+        if not state.bonus_active and self._elapsed >= BONUS_APPEAR_AFTER:
+            pool = self._phrases()
             state.bonus_active = True
-            self._bonus_index = random.randrange(len(_BUZZ_PHRASES))
-            state.bonus_phrase = _BUZZ_PHRASES[self._bonus_index]
+            self._bonus_index = random.randrange(len(pool))
+            state.bonus_phrase = pool[self._bonus_index]
 
     def click_start(self) -> None:
         if self._state.phase == GamePhase.WELCOME:
