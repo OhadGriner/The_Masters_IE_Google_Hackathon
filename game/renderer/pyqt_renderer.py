@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 
 from PyQt5.QtCore import Qt, QTimer, QRect, QUrl
 from PyQt5.QtGui import QColor, QFont, QPainter, QPen, QBrush, QRadialGradient
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QMediaPlaylist
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
 from ..config import ASSETS_DIR
@@ -216,6 +216,9 @@ class _GameWidget(QWidget):
         self._level_transition: float = 0.0
         self._popup_x: int = 0
         self._popup_y: int = 0
+        self._inbox: list = list(_GMAIL_EMAILS[:2])
+        self._inbox_next_idx: int = 2
+        self._next_email_in: float = random.uniform(3, 10)
 
         from PyQt5.QtGui import QPixmap as _QPixmap
         _pix = _QPixmap(str(ASSETS_DIR / "target.png"))
@@ -231,6 +234,20 @@ class _GameWidget(QWidget):
         self._popping_player.setMedia(
             QMediaContent(QUrl.fromLocalFile(str(ASSETS_DIR / "popping.mp3")))
         )
+
+        _alert_playlist = QMediaPlaylist(self)
+        _alert_playlist.addMedia(QMediaContent(QUrl.fromLocalFile(str(ASSETS_DIR / "alert.mp3"))))
+        _alert_playlist.setPlaybackMode(QMediaPlaylist.Loop)
+        self._alert_player = QMediaPlayer(self)
+        self._alert_player.setPlaylist(_alert_playlist)
+
+        self._music_player = QMediaPlayer(self)
+        self._music_player.setMedia(
+            QMediaContent(QUrl.fromLocalFile(str(ASSETS_DIR / "game-music.mp3")))
+        )
+        self._music_player.mediaStatusChanged.connect(self._on_music_status)
+        self._music_player.play()
+
         self._last_countdown_started = False
 
         timer = QTimer(self)
@@ -241,6 +258,11 @@ class _GameWidget(QWidget):
         self.setCursor(Qt.ArrowCursor)
 
     # ── Mouse ─────────────────────────────────────────────────────────────
+
+    def _on_music_status(self, status: int) -> None:
+        if status == QMediaPlayer.EndOfMedia:
+            self._music_player.setPosition(0)
+            self._music_player.play()
 
     def mousePressEvent(self, event) -> None:
         if (self._engine.state.phase == GamePhase.WELCOME
@@ -261,6 +283,15 @@ class _GameWidget(QWidget):
         # Advance level transition (1.5 s crossfade)
         if state.level == 2 and self._level_transition < 1.0:
             self._level_transition = min(1.0, self._level_transition + dt / 1.5)
+
+        # Drip new inbox messages during Gmail level
+        if self._level_transition > 0.0:
+            self._next_email_in -= dt
+            if self._next_email_in <= 0:
+                src = _GMAIL_EMAILS[self._inbox_next_idx % len(_GMAIL_EMAILS)]
+                self._inbox.insert(0, (src[0], src[1], src[2], "just now", True))
+                self._inbox_next_idx += 1
+                self._next_email_in = random.uniform(3, 10)
 
         if state.phase == GamePhase.COUNTDOWN:
             if not self._last_countdown_started:
@@ -287,6 +318,21 @@ class _GameWidget(QWidget):
             self._score_pop_t = self._anim_t
             self._last_score = state.score
 
+        # Background music: pause on game-over screen, resume everywhere else
+        music_playing = self._music_player.state() == QMediaPlayer.PlayingState
+        if state.phase == GamePhase.GAME_OVER and music_playing:
+            self._music_player.pause()
+        elif state.phase != GamePhase.GAME_OVER and not music_playing:
+            self._music_player.play()
+
+        # Alert sound: loop while gaze is off target, stop when back on or game ends
+        alert_playing = self._alert_player.state() == QMediaPlayer.PlayingState
+        should_alert = (state.phase == GamePhase.PLAYING and not state.tracking)
+        if should_alert and not alert_playing:
+            self._alert_player.play()
+        elif not should_alert and alert_playing:
+            self._alert_player.stop()
+
         self.update()
 
     # ── Keyboard ──────────────────────────────────────────────────────────
@@ -311,6 +357,9 @@ class _GameWidget(QWidget):
             self._last_tick = time.perf_counter()
             self._last_bonus_phrase = ""
             self._level_transition = 0.0
+            self._inbox = list(_GMAIL_EMAILS[:2])
+            self._inbox_next_idx = 2
+            self._next_email_in = random.uniform(3, 10)
             self.setCursor(Qt.ArrowCursor)
 
     # ── Paint ─────────────────────────────────────────────────────────────
@@ -722,7 +771,7 @@ class _GameWidget(QWidget):
         # Email rows
         row_y = tab_y + _G_TAB_H
         sender_col_w = 168
-        for sender, subject, snippet, date, unread in _GMAIL_EMAILS:
+        for sender, subject, snippet, date, unread in self._inbox:
             if row_y + _G_ROW_H > h:
                 break
             p.fillRect(ex, row_y, w - ex, _G_ROW_H,
