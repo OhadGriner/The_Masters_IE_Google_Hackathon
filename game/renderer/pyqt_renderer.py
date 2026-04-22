@@ -5,7 +5,7 @@ import time
 from typing import List, Optional, Tuple
 
 from PyQt5.QtCore import Qt, QTimer, QRect, QUrl
-from PyQt5.QtGui import QColor, QFont, QPainter, QPen, QBrush, QRadialGradient
+from PyQt5.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush, QRadialGradient
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QMediaPlaylist
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
@@ -1384,39 +1384,197 @@ class _GameWidget(QWidget):
             off = inset + i * 12
             p.drawRect(off, off, w - off * 2, h - off * 2)
 
-    # ── Welcome screen ────────────────────────────────────────────────────
+    # ── Welcome screen (Orbit-style) ──────────────────────────────────────
 
     def _draw_welcome(self, p: QPainter, w: int, h: int) -> None:
-        p.fillRect(0, 0, w, h, _C_CANVAS)
+        _GBL = QColor(66,  133, 244)   # Google blue
+        _GRD = QColor(234,  67,  53)   # Google red
+        _GYL = QColor(251, 188,   5)   # Google yellow
+        _GGR = QColor( 52, 168,  83)   # Google green
 
-        cy = h // 2
+        # ── Background ───────────────────────────────────────────────────
+        p.fillRect(0, 0, w, h, QColor(229, 234, 244))
 
-        p.setPen(_C_INK)
-        p.setFont(_font(72, bold=True))
-        p.drawText(QRect(0, cy - 110, w, 90), Qt.AlignCenter, "Welcome")
+        # ── Card ─────────────────────────────────────────────────────────
+        card_w = min(700, max(500, w // 2 + 60))
+        card_h = 640
+        card_x = (w - card_w) // 2
+        card_y = max(20, (h - card_h) // 2)
+        card_cx = card_x + card_w // 2
 
-        bw2, bh2 = 200, 50
-        bx2 = (w - bw2) // 2
-        by2 = cy - 10
-        self._start_btn_rect = QRect(bx2, by2, bw2, bh2)
-
+        # Shadow
         p.setPen(Qt.NoPen)
-        p.setBrush(QBrush(_C_BRAND_D))
-        p.drawRoundedRect(bx2, by2 + 4, bw2, bh2, 10, 10)
-        p.setBrush(QBrush(_C_BRAND))
-        p.drawRoundedRect(bx2, by2, bw2, bh2, 10, 10)
-        p.setPen(_C_SURFACE)
-        p.setFont(_font(16, bold=True))
-        p.drawText(QRect(bx2, by2, bw2, bh2), Qt.AlignCenter, "Start")
+        p.setBrush(QBrush(QColor(0, 0, 0, 45)))
+        p.drawRoundedRect(card_x + 6, card_y + 8, card_w, card_h, 20, 20)
+
+        # White card body
+        p.setBrush(QBrush(QColor(255, 255, 255)))
+        p.drawRoundedRect(card_x, card_y, card_w, card_h, 20, 20)
+
+        # Google 4-color top bar (clipped to card shape)
+        p.save()
+        clip = QPainterPath()
+        clip.addRoundedRect(card_x, card_y, card_w, card_h, 20, 20)
+        p.setClipPath(clip)
+        seg = card_w // 4
+        for i, col in enumerate([_GBL, _GRD, _GYL, _GGR]):
+            bx = card_x + i * seg
+            bw2 = seg if i < 3 else card_w - seg * 3
+            p.fillRect(bx, card_y, bw2, 6, col)
+        p.restore()
+
+        # ── Content (incremental y) ───────────────────────────────────────
+        cy = card_y + 6 + 36
+
+        # Logo icon (target.png in rounded-square frame)
+        icon_sz  = 80
+        frame_sz = icon_sz + 20
+        frame_x  = card_cx - frame_sz // 2
+        p.setPen(QPen(QColor(218, 218, 218), 1))
+        p.setBrush(QBrush(QColor(246, 246, 246)))
+        p.drawRoundedRect(frame_x, cy, frame_sz, frame_sz, 18, 18)
+        if self._target_pixmap:
+            scaled = self._target_pixmap.scaled(
+                icon_sz, icon_sz, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            p.drawPixmap(frame_x + (frame_sz - scaled.width()) // 2,
+                         cy     + (frame_sz - scaled.height()) // 2, scaled)
+        cy += frame_sz + 18
+
+        # "Orbit"
+        p.setPen(QColor(20, 20, 20))
+        p.setFont(_font(42, bold=True))
+        p.drawText(QRect(card_x, cy, card_w, 54), Qt.AlignCenter, "Orbit")
+        cy += 54 + 10
+
+        # "PERIPHERAL VISION ASSESSMENT  —  by  Google"
+        tag   = "PERIPHERAL VISION ASSESSMENT"
+        by_s  = "  —  by  "
+        p.setFont(_font(10, bold=False))
+        fm_s  = p.fontMetrics()
+        tag_w = fm_s.horizontalAdvance(tag)
+        by_w  = fm_s.horizontalAdvance(by_s)
+        p.setFont(_font(11, bold=True))
+        fm_g  = p.fontMetrics()
+        g_widths = [fm_g.horizontalAdvance(c) for c in "Google"]
+        total_w = tag_w + by_w + sum(g_widths)
+        rx = card_cx - total_w // 2
+        base = cy + 16          # text baseline
+        p.setFont(_font(10, bold=False))
+        p.setPen(QColor(130, 130, 130))
+        p.drawText(rx, base, tag);  rx += tag_w
+        p.drawText(rx, base, by_s); rx += by_w
+        p.setFont(_font(11, bold=True))
+        for ch, col, cw in zip("Google", [_GBL, _GRD, _GYL, _GBL, _GGR, _GRD], g_widths):
+            p.setPen(col)
+            p.drawText(rx, base, ch)
+            rx += cw
+        cy += 24
+
+        # "~3 min  ·  non-optional"
+        p.setPen(QColor(160, 160, 160))
+        p.setFont(_font(10, bold=False))
+        p.drawText(QRect(card_x, cy, card_w, 20), Qt.AlignCenter, "~3 min  ·  non-optional")
+        cy += 20 + 28
+
+        # ── Steps ─────────────────────────────────────────────────────────
+        step_colors = [_GBL, _GRD, _GGR]
+        steps = [
+            ("Fix your gaze",
+             "on the central crosshair without moving your eyes throughout the session."),
+            ("Press the spacebar",
+             "whenever you detect a stimulus appearing in your peripheral field."),
+            ("Remain still",
+             "and ensure the screen is the only light source in your environment."),
+        ]
+        pad_l    = 44
+        circ_d   = 28
+        text_x   = card_x + pad_l + circ_d + 14
+        text_w   = card_w - pad_l - circ_d - 14 - 36
+        line_h   = 20
+
+        for i, (bold_lbl, desc) in enumerate(steps):
+            sy = cy
+
+            # Numbered circle
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(step_colors[i]))
+            p.drawEllipse(card_x + pad_l, sy, circ_d, circ_d)
+            p.setPen(QColor(255, 255, 255))
+            p.setFont(_font(10, bold=True))
+            p.drawText(QRect(card_x + pad_l, sy, circ_d, circ_d), Qt.AlignCenter, str(i + 1))
+
+            # Bold label — measure width so we can place the desc right after
+            p.setFont(_font(12, bold=True))
+            p.setPen(QColor(25, 25, 25))
+            lbl_w = p.fontMetrics().horizontalAdvance(bold_lbl + " ")
+            base_y = sy + circ_d // 2 + 5   # vertically centred on first text line
+            p.drawText(text_x, base_y, bold_lbl + " ")
+
+            # Description: pack words onto the same line after the label, then wrap
+            p.setFont(_font(12, bold=False))
+            p.setPen(QColor(70, 70, 70))
+            fm_d  = p.fontMetrics()
+            avail = text_w - lbl_w
+            words = desc.split()
+            line1, rest_words = [], []
+            for word in words:
+                test = " ".join(line1 + [word])
+                if fm_d.horizontalAdvance(test) <= avail:
+                    line1.append(word)
+                else:
+                    rest_words = words[len(line1):]
+                    break
+            p.drawText(text_x + lbl_w, base_y, " ".join(line1))
+            if rest_words:
+                p.drawText(text_x, base_y + line_h, " ".join(rest_words))
+                cy += max(circ_d, line_h * 2 + 8) + 14
+            else:
+                cy += max(circ_d, line_h + 4) + 14
+
+        cy += 8
+
+        # ── "Begin Assessment →" button ───────────────────────────────────
+        btn_w = card_w - 80
+        btn_h = 54
+        btn_x = card_cx - btn_w // 2
+        self._start_btn_rect = QRect(btn_x, cy, btn_w, btn_h)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(_GBL))
+        p.drawRoundedRect(btn_x, cy, btn_w, btn_h, btn_h // 2, btn_h // 2)
+        p.setPen(QColor(255, 255, 255))
+        p.setFont(_font(14, bold=True))
+        p.drawText(QRect(btn_x, cy, btn_w, btn_h), Qt.AlignCenter, "Begin Assessment  →")
+        cy += btn_h + 16
+
+        # Footer
+        p.setPen(QColor(175, 175, 175))
+        p.setFont(_font(9, bold=False))
+        p.drawText(QRect(card_x, cy, card_w, 20), Qt.AlignCenter,
+                   "A cognitive performance assessment by Orbit Labs™")
 
     # ── Waiting/calibrate screen ──────────────────────────────────────────
 
     def _draw_waiting(self, p: QPainter, w: int, h: int) -> None:
-        p.fillRect(0, 0, w, h, QColor(0, 0, 0, 100))
-        p.setPen(_C_INK2)
-        p.setFont(_font(18, bold=False))
-        p.drawText(QRect(0, 0, w, h - 60), Qt.AlignCenter,
-                   "Look at the centre of the screen, then press  C  to calibrate")
+        p.fillRect(0, 0, w, h, QColor(0, 0, 0, 120))
+
+        msg = "Look at the centre of the screen, then press  C  to calibrate"
+        p.setFont(_font(24, bold=True))
+        fm = p.fontMetrics()
+        msg_w = fm.horizontalAdvance(msg)
+        msg_h = 36
+        pill_pad_x, pill_pad_y = 28, 14
+        pill_w = msg_w + pill_pad_x * 2
+        pill_h = msg_h + pill_pad_y * 2
+        pill_x = (w - pill_w) // 2
+        pill_y = h // 2 - 80
+
+        # Dark pill backdrop
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(QColor(0, 0, 0, 180)))
+        p.drawRoundedRect(pill_x, pill_y, pill_w, pill_h, pill_h // 2, pill_h // 2)
+
+        p.setPen(QColor(255, 255, 255))
+        p.drawText(QRect(pill_x, pill_y, pill_w, pill_h), Qt.AlignCenter, msg)
         bw2, bh2 = 64, 64
         bx2 = (w - bw2) // 2
         by2 = h // 2 + 20

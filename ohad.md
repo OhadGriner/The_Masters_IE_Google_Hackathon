@@ -1,2 +1,0 @@
-installing homebrew
-installing
