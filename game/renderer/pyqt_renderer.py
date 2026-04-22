@@ -1387,46 +1387,122 @@ class _GameWidget(QWidget):
     # ── Welcome screen (Orbit-style) ──────────────────────────────────────
 
     def _draw_welcome(self, p: QPainter, w: int, h: int) -> None:
-        _GBL = QColor(66,  133, 244)   # Google blue
-        _GRD = QColor(234,  67,  53)   # Google red
-        _GYL = QColor(251, 188,   5)   # Google yellow
-        _GGR = QColor( 52, 168,  83)   # Google green
+        _GBL = QColor( 66, 133, 244)
+        _GRD = QColor(234,  67,  53)
+        _GYL = QColor(251, 188,   5)
+        _GGR = QColor( 52, 168,  83)
+        _GRY = QColor( 95,  99, 104)
 
         # ── Background ───────────────────────────────────────────────────
         p.fillRect(0, 0, w, h, QColor(229, 234, 244))
 
+        # ── Top navigation bar ────────────────────────────────────────────
+        bar_h = 4
+        nav_h = 52
+        # 4-color accent stripe across full width
+        seg_w = w // 4
+        for i, col in enumerate([_GBL, _GRD, _GYL, _GGR]):
+            bx = i * seg_w
+            bw2 = seg_w if i < 3 else w - seg_w * 3
+            p.fillRect(bx, 0, bw2, bar_h, col)
+        # White navbar
+        p.fillRect(0, bar_h, w, nav_h, QColor(255, 255, 255))
+        p.setPen(QPen(QColor(218, 220, 224), 1))
+        p.drawLine(0, bar_h + nav_h - 1, w, bar_h + nav_h - 1)
+
+        nav_y = bar_h   # top of navbar area
+        # Left: grid icon + tiny logo + "Orbit" + separator + "Vision Assessment"
+        nx = 16
+        p.setPen(_GRY)
+        p.setFont(_font(18, bold=False))
+        p.drawText(QRect(nx, nav_y, 36, nav_h), Qt.AlignCenter, "⊞")
+        nx += 42
+        if self._target_pixmap:
+            tiny = self._target_pixmap.scaled(26, 26, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            p.drawPixmap(nx, nav_y + (nav_h - 26) // 2, tiny)
+            nx += 30
+        p.setPen(QColor(30, 30, 30))
+        p.setFont(_font(14, bold=True))
+        p.drawText(QRect(nx, nav_y, 60, nav_h), Qt.AlignLeft | Qt.AlignVCenter, "Orbit")
+        nx += p.fontMetrics().horizontalAdvance("Orbit") + 10
+        p.setPen(QPen(QColor(200, 200, 200), 1))
+        p.drawLine(nx, nav_y + 12, nx, nav_y + nav_h - 12)
+        nx += 12
+        p.setPen(_GRY)
+        p.setFont(_font(13, bold=False))
+        p.drawText(QRect(nx, nav_y, 180, nav_h), Qt.AlignLeft | Qt.AlignVCenter, "Vision Assessment")
+
+        # Center: search bar
+        sb_w = min(440, w - 600)
+        sb_x = (w - sb_w) // 2
+        sb_y = nav_y + (nav_h - 34) // 2
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(QColor(241, 243, 244)))
+        p.drawRoundedRect(sb_x, sb_y, sb_w, 34, 17, 17)
+        p.setPen(_GRY)
+        p.setFont(_font(13, bold=False))
+        fm_sb = p.fontMetrics()
+        p.drawText(QRect(sb_x + 14, sb_y, 22, 34), Qt.AlignCenter, "🔍")
+        p.drawText(QRect(sb_x + 38, sb_y, sb_w - 50, 34),
+                   Qt.AlignLeft | Qt.AlignVCenter, "Search")
+
+        # Right: LABS badge · bell · (0) · avatar
+        rx = w - 14
+        av_d = 32
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(_GBL))
+        p.drawEllipse(rx - av_d, nav_y + (nav_h - av_d) // 2, av_d, av_d)
+        p.setPen(QColor(255, 255, 255))
+        p.setFont(_font(12, bold=True))
+        p.drawText(QRect(rx - av_d, nav_y + (nav_h - av_d) // 2, av_d, av_d),
+                   Qt.AlignCenter, "J")
+        rx -= av_d + 10
+        p.setPen(_GRY)
+        p.setFont(_font(11, bold=False))
+        p.drawText(QRect(rx - 28, nav_y, 28, nav_h), Qt.AlignCenter, "(0)")
+        rx -= 32
+        p.setFont(_font(16, bold=False))
+        p.drawText(QRect(rx - 28, nav_y, 28, nav_h), Qt.AlignCenter, "🔔")
+        rx -= 36
+        labs_w = 46
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(QColor(103, 58, 183)))
+        p.drawRoundedRect(rx - labs_w, nav_y + (nav_h - 22) // 2, labs_w, 22, 4, 4)
+        p.setPen(QColor(255, 255, 255))
+        p.setFont(_font(9, bold=True))
+        p.drawText(QRect(rx - labs_w, nav_y + (nav_h - 22) // 2, labs_w, 22),
+                   Qt.AlignCenter, "LABS")
+
         # ── Card ─────────────────────────────────────────────────────────
-        card_w = min(700, max(500, w // 2 + 60))
-        card_h = 640
-        card_x = (w - card_w) // 2
-        card_y = max(20, (h - card_h) // 2)
+        nav_total = bar_h + nav_h
+        card_w  = min(700, max(500, w // 2 + 60))
+        card_h  = 640
+        card_x  = (w - card_w) // 2
+        card_y  = nav_total + max(16, (h - nav_total - card_h) // 2)
         card_cx = card_x + card_w // 2
 
-        # Shadow
         p.setPen(Qt.NoPen)
         p.setBrush(QBrush(QColor(0, 0, 0, 45)))
         p.drawRoundedRect(card_x + 6, card_y + 8, card_w, card_h, 20, 20)
-
-        # White card body
         p.setBrush(QBrush(QColor(255, 255, 255)))
         p.drawRoundedRect(card_x, card_y, card_w, card_h, 20, 20)
 
-        # Google 4-color top bar (clipped to card shape)
+        # 4-color top bar clipped to card
         p.save()
         clip = QPainterPath()
         clip.addRoundedRect(card_x, card_y, card_w, card_h, 20, 20)
         p.setClipPath(clip)
-        seg = card_w // 4
+        cseg = card_w // 4
         for i, col in enumerate([_GBL, _GRD, _GYL, _GGR]):
-            bx = card_x + i * seg
-            bw2 = seg if i < 3 else card_w - seg * 3
+            bx = card_x + i * cseg
+            bw2 = cseg if i < 3 else card_w - cseg * 3
             p.fillRect(bx, card_y, bw2, 6, col)
         p.restore()
 
-        # ── Content (incremental y) ───────────────────────────────────────
-        cy = card_y + 6 + 36
+        # ── Content ───────────────────────────────────────────────────────
+        cy = card_y + 6 + 32
 
-        # Logo icon (target.png in rounded-square frame)
+        # Logo icon
         icon_sz  = 80
         frame_sz = icon_sz + 20
         frame_x  = card_cx - frame_sz // 2
@@ -1438,7 +1514,7 @@ class _GameWidget(QWidget):
                 icon_sz, icon_sz, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             p.drawPixmap(frame_x + (frame_sz - scaled.width()) // 2,
                          cy     + (frame_sz - scaled.height()) // 2, scaled)
-        cy += frame_sz + 18
+        cy += frame_sz + 16
 
         # "Orbit"
         p.setPen(QColor(20, 20, 20))
@@ -1446,35 +1522,41 @@ class _GameWidget(QWidget):
         p.drawText(QRect(card_x, cy, card_w, 54), Qt.AlignCenter, "Orbit")
         cy += 54 + 10
 
-        # "PERIPHERAL VISION ASSESSMENT  —  by  Google"
-        tag   = "PERIPHERAL VISION ASSESSMENT"
+        # "PERIPHERAL VISION ASSESSMENT  PROTOCOL A  —  by  Google"
+        tag1  = "PERIPHERAL VISION ASSESSMENT"
+        tag2  = "  PROTOCOL A"
         by_s  = "  —  by  "
         p.setFont(_font(10, bold=False))
-        fm_s  = p.fontMetrics()
-        tag_w = fm_s.horizontalAdvance(tag)
-        by_w  = fm_s.horizontalAdvance(by_s)
+        fm_s   = p.fontMetrics()
+        t1_w   = fm_s.horizontalAdvance(tag1)
+        t2_w   = fm_s.horizontalAdvance(tag2)
+        by_w   = fm_s.horizontalAdvance(by_s)
         p.setFont(_font(11, bold=True))
-        fm_g  = p.fontMetrics()
-        g_widths = [fm_g.horizontalAdvance(c) for c in "Google"]
-        total_w = tag_w + by_w + sum(g_widths)
+        fm_g   = p.fontMetrics()
+        g_ws   = [fm_g.horizontalAdvance(c) for c in "Google"]
+        total_w = t1_w + t2_w + by_w + sum(g_ws)
         rx = card_cx - total_w // 2
-        base = cy + 16          # text baseline
+        base = cy + 16
         p.setFont(_font(10, bold=False))
         p.setPen(QColor(130, 130, 130))
-        p.drawText(rx, base, tag);  rx += tag_w
-        p.drawText(rx, base, by_s); rx += by_w
+        p.drawText(rx, base, tag1);  rx += t1_w
+        p.setPen(QColor(100, 100, 100))
+        p.drawText(rx, base, tag2);  rx += t2_w
+        p.setPen(QColor(130, 130, 130))
+        p.drawText(rx, base, by_s);  rx += by_w
         p.setFont(_font(11, bold=True))
-        for ch, col, cw in zip("Google", [_GBL, _GRD, _GYL, _GBL, _GGR, _GRD], g_widths):
+        for ch, col, cw in zip("Google", [_GBL, _GRD, _GYL, _GBL, _GGR, _GRD], g_ws):
             p.setPen(col)
             p.drawText(rx, base, ch)
             rx += cw
         cy += 24
 
-        # "~3 min  ·  non-optional"
+        # "v3.2.1-q3.rc.4  ·  ~3 min  ·  non-optional"
         p.setPen(QColor(160, 160, 160))
         p.setFont(_font(10, bold=False))
-        p.drawText(QRect(card_x, cy, card_w, 20), Qt.AlignCenter, "~3 min  ·  non-optional")
-        cy += 20 + 28
+        p.drawText(QRect(card_x, cy, card_w, 20), Qt.AlignCenter,
+                   "v3.2.1-q3.rc.4  ·  ~3 min  ·  non-optional")
+        cy += 20 + 26
 
         # ── Steps ─────────────────────────────────────────────────────────
         step_colors = [_GBL, _GRD, _GGR]
@@ -1486,16 +1568,14 @@ class _GameWidget(QWidget):
             ("Remain still",
              "and ensure the screen is the only light source in your environment."),
         ]
-        pad_l    = 44
-        circ_d   = 28
-        text_x   = card_x + pad_l + circ_d + 14
-        text_w   = card_w - pad_l - circ_d - 14 - 36
-        line_h   = 20
+        pad_l  = 44
+        circ_d = 28
+        text_x = card_x + pad_l + circ_d + 14
+        text_w = card_w - pad_l - circ_d - 14 - 36
+        line_h = 20
 
         for i, (bold_lbl, desc) in enumerate(steps):
             sy = cy
-
-            # Numbered circle
             p.setPen(Qt.NoPen)
             p.setBrush(QBrush(step_colors[i]))
             p.drawEllipse(card_x + pad_l, sy, circ_d, circ_d)
@@ -1503,27 +1583,25 @@ class _GameWidget(QWidget):
             p.setFont(_font(10, bold=True))
             p.drawText(QRect(card_x + pad_l, sy, circ_d, circ_d), Qt.AlignCenter, str(i + 1))
 
-            # Bold label — measure width so we can place the desc right after
             p.setFont(_font(12, bold=True))
             p.setPen(QColor(25, 25, 25))
-            lbl_w = p.fontMetrics().horizontalAdvance(bold_lbl + " ")
-            base_y = sy + circ_d // 2 + 5   # vertically centred on first text line
+            lbl_w  = p.fontMetrics().horizontalAdvance(bold_lbl + " ")
+            base_y = sy + circ_d // 2 + 5
             p.drawText(text_x, base_y, bold_lbl + " ")
 
-            # Description: pack words onto the same line after the label, then wrap
             p.setFont(_font(12, bold=False))
             p.setPen(QColor(70, 70, 70))
-            fm_d  = p.fontMetrics()
+            fm_d = p.fontMetrics()
             avail = text_w - lbl_w
             words = desc.split()
-            line1, rest_words = [], []
+            line1: list = []
             for word in words:
                 test = " ".join(line1 + [word])
                 if fm_d.horizontalAdvance(test) <= avail:
                     line1.append(word)
                 else:
-                    rest_words = words[len(line1):]
                     break
+            rest_words = words[len(line1):]
             p.drawText(text_x + lbl_w, base_y, " ".join(line1))
             if rest_words:
                 p.drawText(text_x, base_y + line_h, " ".join(rest_words))
@@ -1544,13 +1622,14 @@ class _GameWidget(QWidget):
         p.setPen(QColor(255, 255, 255))
         p.setFont(_font(14, bold=True))
         p.drawText(QRect(btn_x, cy, btn_w, btn_h), Qt.AlignCenter, "Begin Assessment  →")
-        cy += btn_h + 16
+        cy += btn_h + 14
 
         # Footer
         p.setPen(QColor(175, 175, 175))
         p.setFont(_font(9, bold=False))
         p.drawText(QRect(card_x, cy, card_w, 20), Qt.AlignCenter,
                    "A cognitive performance assessment by Orbit Labs™")
+
 
     # ── Waiting/calibrate screen ──────────────────────────────────────────
 
