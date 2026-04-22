@@ -5,11 +5,26 @@ from ..config import BONUS_APPEAR_AFTER, BONUS_POINTS, TARGET_RADIUS
 from ..gaze_providers.base import GazeProvider
 from .state import GamePhase, GameState, Target
 
-_OMEGA_X = 0.25
-_OMEGA_Y = 0.18
-_AMPLITUDE_FRACTION = 0.78
 _COUNTDOWN_START = 3.0
 _LOOKAWAY_FIRE_S = 3.0  # seconds of continuous drift before termination
+
+# ── Speed profiles (pixels / second) ─────────────────────────────────────────
+# Level 1: DVD-style linear bounce, slow and predictable
+L1_SPEED_START = 80.0    # px/s at the start of level 1
+L1_SPEED_END   = 180.0   # px/s at full ramp
+L1_RAMP_S      = 10.0    # seconds until full speed is reached
+
+# Level 2: same DVD bounce, starts faster
+L2_SPEED_START = 180.0
+L2_SPEED_END   = 380.0
+L2_RAMP_S      = 20.0
+
+# Level 3: fluid stochastic movement (random steering + speed jitter)
+L3_SPEED_START  = 280.0
+L3_SPEED_END    = 400.0
+L3_RAMP_S       = 15.0
+L3_STEER_RATE   = 1.8    # RMS angular noise (rad/s) — higher = more random turns
+L3_SPEED_JITTER = 0.30   # fractional speed variation (+/- this fraction of base speed)
 
 _BUZZ_L1 = [
     "Synergy",
@@ -58,8 +73,8 @@ class GameEngine:
         self._screen_height = screen_height
         self._cx = screen_width / 2
         self._cy = screen_height / 2
-        self._ax = self._cx * _AMPLITUDE_FRACTION
-        self._ay = self._cy * _AMPLITUDE_FRACTION
+        self._ax = self._cx - TARGET_RADIUS
+        self._ay = self._cy - TARGET_RADIUS
 
         self._t = 0.0
         self._elapsed = 0.0
@@ -67,6 +82,13 @@ class GameEngine:
         self._bonus_score = 0
         self._bonus_index = 0
         self._drift_s = 0.0
+        self._vel_x: float = 0.0
+        self._vel_y: float = 0.0
+        self._angle: float = 0.0       # L3 current heading (radians)
+        self._angle_vel: float = 0.0   # L3 angular velocity
+        self._level_elapsed: float = 0.0
+        self._prev_level: int = 1
+        self._print_bucket: int = -1
         self._state = self._initial_state()
 
     def _initial_state(self) -> GameState:
@@ -89,6 +111,13 @@ class GameEngine:
         self._bonus_score = 0
         self._bonus_index = 0
         self._drift_s = 0.0
+        self._vel_x = 0.0
+        self._vel_y = 0.0
+        self._angle = 0.0
+        self._angle_vel = 0.0
+        self._level_elapsed = 0.0
+        self._prev_level = 1
+        self._print_bucket = -1
         self._state = self._initial_state()
 
     # ── Bonus input (called by renderer on keypresses) ────────────────────
@@ -147,8 +176,20 @@ class GameEngine:
         self._t += dt
         self._elapsed += dt
 
-        state.target.x = self._cx + self._ax * math.sin(_OMEGA_X * self._t)
-        state.target.y = self._cy + self._ay * math.sin(_OMEGA_Y * self._t)
+        # Reset level ramp clock on level change
+        if state.level != self._prev_level:
+            self._level_elapsed = 0.0
+            if state.level == 3:
+                # Inherit current direction as the L3 heading
+                self._angle = math.atan2(self._vel_y, self._vel_x)
+                self._angle_vel = 0.0
+            self._prev_level = state.level
+        self._level_elapsed += dt
+
+        if state.level <= 2:
+            self._update_dvd(dt, state)
+        else:
+            self._update_l3(dt, state)
 
         dist = math.hypot(gx - state.target.x, gy - state.target.y)
         state.tracking = dist <= state.target.radius + state.gaze_radius
@@ -176,6 +217,97 @@ class GameEngine:
             self._bonus_index = random.randrange(len(pool))
             state.bonus_phrase = pool[self._bonus_index]
 
+    # ── Movement helpers ──────────────────────────────────────────────────
+
+    def _dvd_speed(self, state: GameState) -> float:
+        if state.level == 1:
+            start, end, ramp = L1_SPEED_START, L1_SPEED_END, L1_RAMP_S
+        else:
+            start, end, ramp = L2_SPEED_START, L2_SPEED_END, L2_RAMP_S
+        t = min(1.0, self._level_elapsed / ramp)
+        return start + (end - start) * t
+
+    def _update_dvd(self, dt: float, state: GameState) -> None:
+        speed = self._dvd_speed(state)
+
+        # Rescale velocity to current ramp speed
+        cur = math.hypot(self._vel_x, self._vel_y)
+        if cur > 1e-6:
+            self._vel_x = (self._vel_x / cur) * speed
+            self._vel_y = (self._vel_y / cur) * speed
+
+        nx = state.target.x + self._vel_x * dt
+        ny = state.target.y + self._vel_y * dt
+
+        x_min, x_max = self._cx - self._ax, self._cx + self._ax
+        y_min, y_max = self._cy - self._ay, self._cy + self._ay
+        if nx <= x_min:
+            self._vel_x = abs(self._vel_x)
+            nx = x_min
+        elif nx >= x_max:
+            self._vel_x = -abs(self._vel_x)
+            nx = x_max
+        if ny <= y_min:
+            self._vel_y = abs(self._vel_y)
+            ny = y_min
+        elif ny >= y_max:
+            self._vel_y = -abs(self._vel_y)
+            ny = y_max
+
+        state.target.x = nx
+        state.target.y = ny
+        self._log_speed(speed, state.level)
+
+    def _update_l3(self, dt: float, state: GameState) -> None:
+        t = min(1.0, self._level_elapsed / L3_RAMP_S)
+        base_speed = L3_SPEED_START + (L3_SPEED_END - L3_SPEED_START) * t
+        speed = base_speed * (1.0 + L3_SPEED_JITTER * math.sin(self._t * 1.7))
+
+        # Random angular drift — Gaussian noise scaled by sqrt(dt) for frame-rate independence
+        self._angle_vel += random.gauss(0.0, L3_STEER_RATE) * math.sqrt(dt)
+        self._angle_vel = max(-3.0, min(3.0, self._angle_vel))
+        self._angle_vel *= max(0.0, 1.0 - 2.5 * dt)  # damping prevents perpetual spin
+        self._angle += self._angle_vel * dt
+
+        self._vel_x = math.cos(self._angle) * speed
+        self._vel_y = math.sin(self._angle) * speed
+
+        nx = state.target.x + self._vel_x * dt
+        ny = state.target.y + self._vel_y * dt
+
+        x_min, x_max = self._cx - self._ax, self._cx + self._ax
+        y_min, y_max = self._cy - self._ay, self._cy + self._ay
+        if nx <= x_min:
+            self._angle = math.pi - self._angle
+            self._angle_vel *= -0.5
+            nx = x_min + 1
+        elif nx >= x_max:
+            self._angle = math.pi - self._angle
+            self._angle_vel *= -0.5
+            nx = x_max - 1
+        if ny <= y_min:
+            self._angle = -self._angle
+            self._angle_vel *= -0.5
+            ny = y_min + 1
+        elif ny >= y_max:
+            self._angle = -self._angle
+            self._angle_vel *= -0.5
+            ny = y_max - 1
+
+        state.target.x = nx
+        state.target.y = ny
+        self._log_speed(speed, state.level)
+
+    def _log_speed(self, speed: float, level: int) -> None:
+        bucket = int(self._elapsed)
+        if bucket != self._print_bucket:
+            self._print_bucket = bucket
+            print(
+                f"[L{level}]  speed={speed:6.1f} px/s"
+                f"  level_elapsed={self._level_elapsed:5.1f}s"
+                f"  total_elapsed={self._elapsed:6.1f}s"
+            )
+
     def click_start(self) -> None:
         if self._state.phase == GamePhase.WELCOME:
             self._state.phase = GamePhase.WAITING
@@ -183,8 +315,14 @@ class GameEngine:
     def calibrate(self) -> None:
         self._gaze.calibrate()
         if self._state.phase == GamePhase.WAITING:
-            self._t = 0.0  # target begins at screen centre (sin(0) = 0)
+            self._t = 0.0
             self._state.target.x = self._cx
             self._state.target.y = self._cy
+            # Seed velocity with a random diagonal so DVD bounce starts immediately
+            self._angle = random.uniform(0.2, 1.2)  # avoid purely axis-aligned starts
+            self._vel_x = math.cos(self._angle) * L1_SPEED_START
+            self._vel_y = math.sin(self._angle) * L1_SPEED_START
+            self._level_elapsed = 0.0
+            self._prev_level = 1
             self._state.phase = GamePhase.COUNTDOWN
             self._state.countdown = _COUNTDOWN_START
