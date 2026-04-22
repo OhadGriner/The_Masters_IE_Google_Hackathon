@@ -244,6 +244,7 @@ class _GameWidget(QWidget):
         self._slide_pixmap = _spix if not _spix.isNull() else None
 
         self._last_level: int = 0
+        self._last_phase = None
 
         self._countdown_player = QMediaPlayer(self)
         self._countdown_player.setMedia(
@@ -271,6 +272,11 @@ class _GameWidget(QWidget):
         )
         self._music_player.mediaStatusChanged.connect(self._on_music_status)
         self._music_player.play()
+
+        self._youre_fired_player = QMediaPlayer(self)
+        self._youre_fired_player.setMedia(
+            QMediaContent(QUrl.fromLocalFile(str(ASSETS_DIR / "YoureFired.mp3")))
+        )
 
         self._last_countdown_started = False
 
@@ -359,6 +365,12 @@ class _GameWidget(QWidget):
             self._score_pop_t = self._anim_t
             self._last_score = state.score
 
+        # "You're Fired" sting: play once on transition into GAME_OVER
+        if state.phase == GamePhase.GAME_OVER and self._last_phase != GamePhase.GAME_OVER:
+            self._youre_fired_player.setPosition(0)
+            self._youre_fired_player.play()
+        self._last_phase = state.phase
+
         # Background music: pause on game-over screen, resume everywhere else
         music_playing = self._music_player.state() == QMediaPlayer.PlayingState
         if state.phase == GamePhase.GAME_OVER and music_playing:
@@ -394,6 +406,8 @@ class _GameWidget(QWidget):
         if event.key() == Qt.Key_C:
             self._engine.calibrate()
         elif event.key() == Qt.Key_R and state.phase == GamePhase.GAME_OVER:
+            self._youre_fired_player.stop()
+            self._last_phase = None
             self._engine.reset()
             self._last_tick = time.perf_counter()
             self._last_bonus_phrase = ""
