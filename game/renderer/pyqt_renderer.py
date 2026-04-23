@@ -245,6 +245,9 @@ class _GameWidget(QWidget):
 
         self._last_level: int = 0
         self._last_phase = None
+        self._dev_mode: bool = False
+        self._dev_d_pressed_at: Optional[float] = None
+        self._dev_selected_level: int = 1
 
         self._countdown_player = QMediaPlayer(self)
         self._countdown_player.setMedia(
@@ -307,6 +310,14 @@ class _GameWidget(QWidget):
         dt = now - self._last_tick
         self._last_tick = now
         self._anim_t += dt
+
+        if (self._dev_d_pressed_at is not None and not self._dev_mode
+                and self._engine.state.phase == GamePhase.WELCOME):
+            if now - self._dev_d_pressed_at >= 3.0:
+                self._dev_mode = True
+                self._dev_d_pressed_at = None
+                self._dev_selected_level = 1
+
         self._engine.update(dt)
         state = self._engine.state
 
@@ -392,6 +403,32 @@ class _GameWidget(QWidget):
 
     def keyPressEvent(self, event) -> None:
         state = self._engine.state
+
+        # Dev mode: hold D for 3 s on welcome screen
+        if state.phase == GamePhase.WELCOME and event.key() == Qt.Key_D:
+            if not event.isAutoRepeat() and self._dev_d_pressed_at is None and not self._dev_mode:
+                self._dev_d_pressed_at = time.perf_counter()
+            return
+
+        # Dev mode overlay controls
+        if self._dev_mode:
+            if event.key() == Qt.Key_Escape:
+                self._dev_mode = False
+                self._dev_d_pressed_at = None
+            elif event.key() in (Qt.Key_1, Qt.Key_2, Qt.Key_3):
+                self._dev_selected_level = int(event.text())
+            elif event.key() in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Space):
+                self._dev_mode = False
+                self._engine.set_start_level(self._dev_selected_level)
+                self._engine.click_start()
+                if self._dev_selected_level >= 2:
+                    self._level_transition = 1.0
+                if self._dev_selected_level >= 3:
+                    self._level_transition_23 = 1.0
+                self._last_level = self._dev_selected_level - 1
+                self.setCursor(Qt.BlankCursor)
+            return
+
         if event.key() == Qt.Key_Escape:
             QApplication.quit()
             return
@@ -419,6 +456,10 @@ class _GameWidget(QWidget):
             self._next_email_in = random.uniform(3, 10)
             self.setCursor(Qt.ArrowCursor)
 
+    def keyReleaseEvent(self, event) -> None:
+        if event.key() == Qt.Key_D and not event.isAutoRepeat() and not self._dev_mode:
+            self._dev_d_pressed_at = None
+
     # ── Paint ─────────────────────────────────────────────────────────────
 
     def paintEvent(self, _event) -> None:
@@ -431,6 +472,11 @@ class _GameWidget(QWidget):
 
         if state.phase == GamePhase.WELCOME:
             self._draw_welcome(p, w, h)
+            if self._dev_mode:
+                self._draw_dev_overlay(p, w, h)
+            elif self._dev_d_pressed_at is not None:
+                held = min(1.0, (time.perf_counter() - self._dev_d_pressed_at) / 3.0)
+                self._draw_dev_hold_progress(p, w, h, held)
             p.end()
             return
 
@@ -1644,6 +1690,74 @@ class _GameWidget(QWidget):
         p.drawText(QRect(card_x, cy, card_w, 20), Qt.AlignCenter,
                    "A cognitive performance assessment by Orbit Labs™")
 
+
+    # ── Developer mode overlay ────────────────────────────────────────────
+
+    def _draw_dev_hold_progress(self, p: QPainter, w: int, h: int, progress: float) -> None:
+        bar_w, bar_h = 120, 4
+        bx = (w - bar_w) // 2
+        by = h - 30
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(QColor(60, 60, 60, 180)))
+        p.drawRoundedRect(bx, by, bar_w, bar_h, 2, 2)
+        p.setBrush(QBrush(QColor(255, 160, 0)))
+        p.drawRoundedRect(bx, by, int(bar_w * progress), bar_h, 2, 2)
+
+    def _draw_dev_overlay(self, p: QPainter, w: int, h: int) -> None:
+        p.fillRect(0, 0, w, h, QColor(0, 0, 0, 160))
+
+        panel_w, panel_h = 420, 330
+        px = (w - panel_w) // 2
+        py = (h - panel_h) // 2
+
+        p.setPen(Qt.NoPen)
+        p.setBrush(QBrush(QColor(28, 28, 30)))
+        p.drawRoundedRect(px, py, panel_w, panel_h, 16, 16)
+
+        p.setPen(QColor(255, 160, 0))
+        p.setFont(_font(11, bold=True))
+        p.drawText(QRect(px, py + 22, panel_w, 24), Qt.AlignCenter, "⚙  DEVELOPER MODE")
+
+        p.setPen(QColor(150, 150, 155))
+        p.setFont(_font(11, bold=False))
+        p.drawText(QRect(px, py + 50, panel_w, 20), Qt.AlignCenter, "Select starting level")
+
+        level_labels = ["Level 1  —  Spreadsheet", "Level 2  —  Gmail", "Level 3  —  Slides"]
+        level_hints  = ["Score starts at 0", "Score starts at 100", "Score starts at 200"]
+        btn_w, btn_h = panel_w - 60, 52
+        btn_x = px + 30
+        by = py + 82
+
+        for i, (label, hint) in enumerate(zip(level_labels, level_hints)):
+            level = i + 1
+            selected = level == self._dev_selected_level
+            if selected:
+                p.setPen(Qt.NoPen)
+                p.setBrush(QBrush(QColor(45, 75, 217)))
+                p.drawRoundedRect(btn_x, by, btn_w, btn_h, 10, 10)
+                name_col = QColor(255, 255, 255)
+                hint_col = QColor(180, 200, 255)
+            else:
+                p.setPen(QPen(QColor(70, 70, 75), 1))
+                p.setBrush(QBrush(QColor(44, 44, 46)))
+                p.drawRoundedRect(btn_x, by, btn_w, btn_h, 10, 10)
+                name_col = QColor(190, 190, 195)
+                hint_col = QColor(110, 110, 115)
+
+            p.setPen(name_col)
+            p.setFont(_font(12, bold=True))
+            p.drawText(QRect(btn_x + 16, by, btn_w - 16, btn_h // 2 + 6),
+                       Qt.AlignLeft | Qt.AlignVCenter, f"{level}   {label}")
+            p.setPen(hint_col)
+            p.setFont(_font(10, bold=False))
+            p.drawText(QRect(btn_x + 16, by + btn_h // 2, btn_w - 16, btn_h // 2),
+                       Qt.AlignLeft | Qt.AlignVCenter, hint)
+            by += btn_h + 10
+
+        p.setPen(QColor(100, 100, 105))
+        p.setFont(_font(10, bold=False))
+        p.drawText(QRect(px, by + 10, panel_w, 20), Qt.AlignCenter,
+                   "1 / 2 / 3  to select   ·   Enter  to start   ·   Esc  to cancel")
 
     # ── Waiting/calibrate screen ──────────────────────────────────────────
 

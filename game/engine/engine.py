@@ -89,6 +89,7 @@ class GameEngine:
         self._level_elapsed: float = 0.0
         self._prev_level: int = 1
         self._print_bucket: int = -1
+        self._start_level: int = 1
         self._state = self._initial_state()
 
     def _initial_state(self) -> GameState:
@@ -104,6 +105,9 @@ class GameEngine:
     def state(self) -> GameState:
         return self._state
 
+    def set_start_level(self, level: int) -> None:
+        self._start_level = max(1, min(3, level))
+
     def reset(self) -> None:
         self._t = 0.0
         self._elapsed = 0.0
@@ -118,6 +122,7 @@ class GameEngine:
         self._level_elapsed = 0.0
         self._prev_level = 1
         self._print_bucket = -1
+        self._start_level = 1
         self._state = self._initial_state()
 
     # ── Bonus input (called by renderer on keypresses) ────────────────────
@@ -318,11 +323,15 @@ class GameEngine:
             self._t = 0.0
             self._state.target.x = self._cx
             self._state.target.y = self._cy
-            # Seed velocity with a random diagonal so DVD bounce starts immediately
-            self._angle = random.uniform(0.2, 1.2)  # avoid purely axis-aligned starts
-            self._vel_x = math.cos(self._angle) * L1_SPEED_START
-            self._vel_y = math.sin(self._angle) * L1_SPEED_START
+            self._angle = random.uniform(0.2, 1.2)
+            start_speed = {1: L1_SPEED_START, 2: L2_SPEED_START, 3: L3_SPEED_START}.get(self._start_level, L1_SPEED_START)
+            self._vel_x = math.cos(self._angle) * start_speed
+            self._vel_y = math.sin(self._angle) * start_speed
             self._level_elapsed = 0.0
-            self._prev_level = 1
+            self._prev_level = self._start_level
+            self._state.level = self._start_level
+            self._tracking_acc = {1: 0.0, 2: 100.0, 3: 200.0}.get(self._start_level, 0.0)
+            self._bonus_score = 0
+            self._state.score = int(self._tracking_acc)
             self._state.phase = GamePhase.COUNTDOWN
             self._state.countdown = _COUNTDOWN_START
