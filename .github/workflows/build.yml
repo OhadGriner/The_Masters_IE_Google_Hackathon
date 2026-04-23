@@ -26,11 +26,11 @@ jobs:
       - name: Zip app bundle
         run: |
           cd dist
-          mv Orbit.app Orbit-${{ github.ref_name }}.app
-          zip -r Orbit-${{ github.ref_name }}-mac.zip Orbit-${{ github.ref_name }}.app
+          mv Orbit.app Orbit-${{ github.sha }}.app
+          zip -r Orbit-${{ github.sha }}-mac.zip Orbit-${{ github.sha }}.app
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: dist/Orbit-${{ github.ref_name }}-mac.zip
-          generate_release_notes: true
+          name: Orbit-${{ github.sha }}-mac
+          path: dist/Orbit-${{ github.sha }}-mac.zip
