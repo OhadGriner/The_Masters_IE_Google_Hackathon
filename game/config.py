@@ -13,3 +13,8 @@ TARGET_RADIUS = 50                          # pixels — controls image size & h
 BONUS_APPEAR_AFTER = 10.0   # seconds of play before first bonus image appears
 BONUS_POINTS = 30            # points awarded per correct answer
 
+# ── Levels ────────────────────────────────────────────────────────────────────
+LEVEL_NAMES = {1: "Spreadsheet", 2: "Gmail", 3: "Slides"}
+# Score at which each level begins; also the threshold to advance to that level
+LEVEL_START_SCORES = {1: 0, 2: 100, 3: 200}
+

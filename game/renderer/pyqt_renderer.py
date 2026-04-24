@@ -9,7 +9,7 @@ from PyQt5.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush, QRa
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QMediaPlaylist
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
-from ..config import ASSETS_DIR
+from ..config import ASSETS_DIR, LEVEL_NAMES, LEVEL_START_SCORES
 from ..engine.engine import GameEngine
 from ..engine.state import GamePhase, GameState
 from ..gaze_providers.base import GazeProvider
@@ -1621,12 +1621,12 @@ class _GameWidget(QWidget):
         # ── Steps ─────────────────────────────────────────────────────────
         step_colors = [_GBL, _GRD, _GGR]
         steps = [
-            ("Fix your gaze",
-             "on the central crosshair without moving your eyes throughout the session."),
-            ("Press the spacebar",
-             "whenever you detect a stimulus appearing in your peripheral field."),
-            ("Remain still",
-             "and ensure the screen is the only light source in your environment."),
+            ("Look at the center of the screen",
+             "then press C to calibrate and start the game."),
+            ("Follow the target",
+             "with your gaze and head movement throughout the session."),
+            ("Try to respond to your corporate colleagues",
+             "by completing their deliverables as they appear."),
         ]
         pad_l  = 44
         circ_d = 28
@@ -1722,8 +1722,8 @@ class _GameWidget(QWidget):
         p.setFont(_font(11, bold=False))
         p.drawText(QRect(px, py + 50, panel_w, 20), Qt.AlignCenter, "Select starting level")
 
-        level_labels = ["Level 1  —  Spreadsheet", "Level 2  —  Gmail", "Level 3  —  Slides"]
-        level_hints  = ["Score starts at 0", "Score starts at 100", "Score starts at 200"]
+        level_labels = [f"Level {lvl}  —  {LEVEL_NAMES[lvl]}" for lvl in sorted(LEVEL_NAMES)]
+        level_hints  = [f"Score starts at {LEVEL_START_SCORES[lvl]}" for lvl in sorted(LEVEL_START_SCORES)]
         btn_w, btn_h = panel_w - 60, 52
         btn_x = px + 30
         by = py + 82

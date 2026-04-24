@@ -1,7 +1,7 @@
 import math
 import random
 
-from ..config import BONUS_APPEAR_AFTER, BONUS_POINTS, TARGET_RADIUS
+from ..config import BONUS_APPEAR_AFTER, BONUS_POINTS, LEVEL_START_SCORES, TARGET_RADIUS
 from ..gaze_providers.base import GazeProvider
 from .state import GamePhase, GameState, Target
 
@@ -203,9 +203,9 @@ class GameEngine:
             self._drift_s = max(0.0, self._drift_s - dt * 2)
             self._tracking_acc += dt
             state.score = int(self._tracking_acc) + self._bonus_score
-            if state.level == 1 and state.score >= 100:
+            if state.level == 1 and state.score >= LEVEL_START_SCORES[2]:
                 state.level = 2
-            elif state.level == 2 and state.score >= 200:
+            elif state.level == 2 and state.score >= LEVEL_START_SCORES[3]:
                 state.level = 3
         else:
             self._drift_s += dt
