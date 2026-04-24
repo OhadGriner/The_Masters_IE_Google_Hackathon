@@ -269,6 +269,8 @@ class _GameWidget(QWidget):
             plist.setPlaybackMode(QMediaPlaylist.CurrentItemOnce)
             pl = QMediaPlayer(self)
             pl.setPlaylist(plist)
+            pl.error.connect(lambda err: _log(f"{filename} ERROR signal: code={err} msg={pl.errorString()}"))
+            pl.mediaStatusChanged.connect(lambda s: _log(f"{filename} statusChanged: {s}"))
             return pl
 
         self._countdown_player = _playlist_player("countdown.mp3")
@@ -354,10 +356,11 @@ class _GameWidget(QWidget):
         new_level = state.level if state.phase in (GamePhase.COUNTDOWN, GamePhase.PLAYING) else 0
         if new_level == 1 and self._last_level == 0 and state.phase == GamePhase.PLAYING:
             pl = self._level_stingers[1]
-            _log(f"stinger1 before play: state={pl.state()} status={pl.mediaStatus()} error={pl.error()}")
+            _log(f"stinger1 before play: state={pl.state()} status={pl.mediaStatus()} error={pl.error()} volume={pl.volume()}")
             pl.playlist().setCurrentIndex(0)
             pl.play()
             _log(f"stinger1 after play:  state={pl.state()}")
+            QTimer.singleShot(500, lambda: _log(f"stinger1 @500ms:      state={pl.state()} status={pl.mediaStatus()} error={pl.error()}"))
             self._last_level = 1
         elif new_level == 2 and self._last_level == 1:
             self._level_stingers[2].playlist().setCurrentIndex(0)
