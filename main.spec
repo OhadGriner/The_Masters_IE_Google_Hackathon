@@ -5,15 +5,17 @@ block_cipher = None
 
 mp_datas, mp_binaries, mp_hiddenimports = collect_all("mediapipe")
 cv2_datas, cv2_binaries, cv2_hiddenimports = collect_all("cv2")
+qt_datas, qt_binaries, qt_hiddenimports = collect_all("PyQt5")
 
 a = Analysis(
     ["main.py"],
     pathex=[],
-    binaries=mp_binaries + cv2_binaries,
+    binaries=mp_binaries + cv2_binaries + qt_binaries,
     datas=[
         ("assets", "assets"),
         *mp_datas,
         *cv2_datas,
+        *qt_datas,
     ],
     hiddenimports=[
         "PyQt5",
@@ -30,6 +32,7 @@ a = Analysis(
         *collect_submodules("PyQt5"),
         *mp_hiddenimports,
         *cv2_hiddenimports,
+        *qt_hiddenimports,
     ],
     hookspath=[],
     runtime_hooks=[],
