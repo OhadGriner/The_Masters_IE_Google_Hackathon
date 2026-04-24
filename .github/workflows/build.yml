@@ -65,17 +65,16 @@ jobs:
       - name: Build app
         run: uv run pyinstaller main_windows.spec --clean --noconfirm
 
-      - name: Zip app bundle
-        run: |
-          Compress-Archive -Path dist/Orbit -DestinationPath dist/Orbit-${{ github.ref_name }}-windows.zip
+      - name: Rename exe
+        run: mv dist/Orbit.exe dist/Orbit-${{ github.ref_name }}-windows.exe
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: Orbit-${{ github.ref_name }}-windows
-          path: dist/Orbit-${{ github.ref_name }}-windows.zip
+          path: dist/Orbit-${{ github.ref_name }}-windows.exe
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Orbit-${{ github.ref_name }}-windows.zip
+          files: dist/Orbit-${{ github.ref_name }}-windows.exe

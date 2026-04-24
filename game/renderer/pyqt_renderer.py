@@ -5,7 +5,7 @@ import time
 from typing import List, Optional, Tuple
 
 from PyQt5.QtCore import Qt, QTimer, QRect, QUrl
-from PyQt5.QtGui import QColor, QFont, QPainter, QPainterPath, QPen, QBrush, QRadialGradient
+from PyQt5.QtGui import QColor, QFont, QFontDatabase, QPainter, QPainterPath, QPen, QBrush, QRadialGradient
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QMediaPlaylist
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget
 
@@ -1904,9 +1904,15 @@ class _GameWidget(QWidget):
                    "signed, The Algorithm  ·  Esc to quit")
 
 
+def _load_bundled_fonts() -> None:
+    for ttf in (ASSETS_DIR / "fonts").glob("*.ttf"):
+        QFontDatabase.addApplicationFont(str(ttf))
+
+
 class PyQtRenderer(GameRenderer):
     def start(self, gaze_provider: GazeProvider) -> None:
         app = QApplication(sys.argv)
+        _load_bundled_fonts()
         screen = app.primaryScreen().geometry()
         w, h = screen.width(), screen.height()
 
