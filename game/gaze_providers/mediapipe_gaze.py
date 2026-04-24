@@ -48,6 +48,10 @@ class MediaPipeGazeProvider(GazeProvider):
         with self._lock:
             return self._gaze_x, self._gaze_y
 
+    def set_screen_size(self, w: int, h: int) -> None:
+        self._screen_w = w
+        self._screen_h = h
+
     def calibrate(self) -> None:
         with self._lock:
             self._calibration_yaw = 180.0 - self._raw_yaw

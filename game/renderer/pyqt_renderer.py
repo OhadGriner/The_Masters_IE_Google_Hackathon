@@ -257,9 +257,17 @@ class _GameWidget(QWidget):
             pl.setMedia(QMediaContent(QUrl.fromLocalFile(path)))
             return pl
 
-        self._countdown_player = _player("countdown.mp3")
-        self._level_stingers: dict = {lvl: _player(f"level-{lvl}.mp3") for lvl in (1, 2, 3)}
-        self._popping_player = _player("popping.mp3")
+        def _playlist_player(filename: str) -> QMediaPlayer:
+            plist = QMediaPlaylist(self)
+            plist.addMedia(QMediaContent(QUrl.fromLocalFile((ASSETS_DIR / filename).as_posix())))
+            plist.setPlaybackMode(QMediaPlaylist.CurrentItemOnce)
+            pl = QMediaPlayer(self)
+            pl.setPlaylist(plist)
+            return pl
+
+        self._countdown_player = _playlist_player("countdown.mp3")
+        self._level_stingers: dict = {lvl: _playlist_player(f"level-{lvl}.mp3") for lvl in (1, 2, 3)}
+        self._popping_player = _playlist_player("popping.mp3")
 
         _alert_playlist = QMediaPlaylist(self)
         _alert_playlist.addMedia(QMediaContent(QUrl.fromLocalFile((ASSETS_DIR / "alert.mp3").as_posix())))
@@ -271,18 +279,7 @@ class _GameWidget(QWidget):
         self._music_player.mediaStatusChanged.connect(self._on_music_status)
         self._music_player.play()
 
-        self._youre_fired_player = _player("YoureFired.mp3")
-
-        # On Windows, WMF doesn't fully initialize a media session until play() is
-        # called at least once. Silently warm up every one-shot player so they're
-        # ready when triggered during gameplay.
-        self._one_shot_players = [
-            self._countdown_player,
-            *self._level_stingers.values(),
-            self._popping_player,
-            self._youre_fired_player,
-        ]
-        QTimer.singleShot(0, self._warm_up_players)
+        self._youre_fired_player = _playlist_player("YoureFired.mp3")
 
         self._last_countdown_started = False
 
@@ -299,18 +296,6 @@ class _GameWidget(QWidget):
         if status == QMediaPlayer.EndOfMedia:
             self._music_player.setPosition(0)
             self._music_player.play()
-
-    def _warm_up_players(self) -> None:
-        for pl in self._one_shot_players:
-            pl.setVolume(0)
-            pl.play()
-        QTimer.singleShot(200, self._finish_warm_up)
-
-    def _finish_warm_up(self) -> None:
-        for pl in self._one_shot_players:
-            pl.stop()
-            pl.setPosition(0)
-            pl.setVolume(100)
 
     def mousePressEvent(self, event) -> None:
         if (self._engine.state.phase == GamePhase.WELCOME
@@ -1948,6 +1933,7 @@ class PyQtRenderer(GameRenderer):
         screen = app.primaryScreen().geometry()
         w, h = screen.width(), screen.height()
 
+        gaze_provider.set_screen_size(w, h)
         gaze_provider.start()
         engine = GameEngine(w, h, gaze_provider)
 

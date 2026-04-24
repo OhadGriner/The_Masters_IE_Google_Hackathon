@@ -14,3 +14,6 @@ class GazeProvider(ABC):
 
     def calibrate(self) -> None:
         """Reset center to current gaze direction. No-op by default."""
+
+    def set_screen_size(self, w: int, h: int) -> None:
+        """Override screen dimensions (e.g. logical pixels on HiDPI). No-op by default."""
