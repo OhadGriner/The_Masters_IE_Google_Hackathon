@@ -11,11 +11,17 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "pyautogui>=0.9.54",
     "pyopengl>=3.1.10",
-    "pyqt5>=5.15.11",
+    "pyqt5>=5.15.11,<5.15.15",
     "scipy>=1.13.1",
 ]
 
 [dependency-groups]
 dev = [
     "pyinstaller>=6.20.0",
+]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'darwin'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
