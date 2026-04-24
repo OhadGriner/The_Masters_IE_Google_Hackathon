@@ -1764,7 +1764,7 @@ class _GameWidget(QWidget):
     def _draw_waiting(self, p: QPainter, w: int, h: int) -> None:
         p.fillRect(0, 0, w, h, QColor(0, 0, 0, 120))
 
-        msg = "Look at the centre of the screen, then press  C  to calibrate"
+        msg = "Look at the center of the screen, then press  C  to calibrate"
         p.setFont(_font(24, bold=True))
         fm = p.fontMetrics()
         msg_w = fm.horizontalAdvance(msg)
