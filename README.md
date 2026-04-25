@@ -1,8 +1,8 @@
 ![Orbit](assets/Orbit-Logo-Caption.png)
 
-# Gaze Tracker: Corporate Performance Assessment
+# Head Movement Tracker: Corporate Performance Assessment
 
-> A satirical eye-tracking game that evaluates your focus — and fires you if you lose it.
+> A satirical head-movement game that evaluates your focus — and fires you if you lose it.
 
 <!-- SCREENSHOT: Full welcome/title screen showing the corporate branding and "Begin Assessment" button -->
 <!-- Insert screenshot here: assets/screenshots/welcome.png -->

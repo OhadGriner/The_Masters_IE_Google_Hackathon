@@ -1607,7 +1607,7 @@ class _GameWidget(QWidget):
         cy += 54 + 10
 
         # "PERIPHERAL VISION ASSESSMENT  PROTOCOL A  —  by  Google"
-        tag1  = "PERIPHERAL VISION ASSESSMENT"
+        tag1  = "Corporate Performance Assessment"
         tag2  = "  PROTOCOL A"
         by_s  = "  —  by  "
         p.setFont(_font(10, bold=False))

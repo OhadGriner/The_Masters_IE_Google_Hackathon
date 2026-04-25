@@ -17,7 +17,7 @@ _LANDMARKS = {"left": 234, "right": 454, "top": 10, "bottom": 152, "front": 1}
 
 
 class MediaPipeGazeProvider(GazeProvider):
-    """Head-pose gaze provider using MediaPipe FaceMesh. Ports MonitorTracking.py into a class."""
+    """Head-pose gaze provider using MediaPipe FaceMesh."""
 
     def __init__(self, camera_index: int = 0) -> None:
         self._camera_index = camera_index
