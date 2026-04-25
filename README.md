@@ -30,15 +30,15 @@ Three escalating levels. Three increasingly unhinged environments. One HR verdic
 
 **Level 1 — Google Sheets**
 
-![Level 1](assets/demos/First%20Level.mp4)
+![Level 1](assets/demos/First%20Level.gif)
 
 **Level 2 — Gmail Inbox**
 
-![Level 2](assets/demos/Second%20Level.mp4)
+![Level 2](assets/demos/Second%20Level.gif)
 
 **Level 3 — Google Slides**
 
-![Level 3](assets/demos/Thirrd%20Level.mp4)
+![Level 3](assets/demos/Thirrd%20Level.gif)
 
 <!-- SCREENSHOT: Game Over / "YOU'RE FIRED" screen -->
 <!-- Insert screenshot here: assets/screenshots/game_over.png -->
