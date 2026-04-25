@@ -9,6 +9,18 @@
 
 ---
 
+## Table of Contents
+
+- [What is this?](#what-is-this)
+- [Demo](#demo)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Building & Releasing](#building--releasing)
+- [License](#license)
+
+---
+
 ## What is this?
 
 A real-time gaze-tracking game built with **MediaPipe** and **PyQt5**. Your webcam tracks your head pose and translates it into a gaze position on screen. Your job: keep your eyes on the moving target while a fake corporate OS emails you, asks you to type buzzwords, and ultimately judges your performance.
