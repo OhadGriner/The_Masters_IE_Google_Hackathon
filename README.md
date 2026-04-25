@@ -53,6 +53,7 @@ Three escalating levels. Three increasingly unhinged environments. One HR verdic
 - **Bonus quiz** — pop-up asks you to type corporate buzzwords mid-game for extra points
 - **HR verdict** on game over, scaled to your score
 - **Calibration** — press `C` to set your current head pose as screen center
+- **Original soundtrack** — music, level stingers, and alerts; best experienced with sound on
 
 ---
 

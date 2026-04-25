@@ -1709,6 +1709,12 @@ class _GameWidget(QWidget):
         p.drawText(QRect(btn_x, cy, btn_w, btn_h), Qt.AlignCenter, "Begin Assessment  →")
         cy += btn_h + int(14 * vscale)
 
+        # Sound notice
+        p.setPen(QColor(120, 120, 120))
+        p.setFont(_font(int(11 * max(0.8, vscale)), bold=False))
+        p.drawText(QRect(card_x, cy, card_w, int(22 * vscale)), Qt.AlignCenter, "🔊  Best experienced with sound on")
+        cy += int(26 * vscale)
+
         # Footer
         p.setPen(QColor(175, 175, 175))
         p.setFont(_font(9, bold=False))
