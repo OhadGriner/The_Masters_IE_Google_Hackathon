@@ -30,15 +30,15 @@ Three escalating levels. Three increasingly unhinged environments. One HR verdic
 
 **Level 1 — Google Sheets**
 
-<video src="assets/demos/First%20Level.mp4" autoplay loop muted playsinline></video>
+![Level 1](assets/demos/First%20Level.mp4)
 
 **Level 2 — Gmail Inbox**
 
-<video src="assets/demos/Second%20Level.mp4" autoplay loop muted playsinline></video>
+![Level 2](assets/demos/Second%20Level.mp4)
 
 **Level 3 — Google Slides**
 
-<video src="assets/demos/Thirrd%20Level.mp4" autoplay loop muted playsinline></video>
+![Level 3](assets/demos/Thirrd%20Level.mp4)
 
 <!-- SCREENSHOT: Game Over / "YOU'RE FIRED" screen -->
 <!-- Insert screenshot here: assets/screenshots/game_over.png -->
@@ -70,13 +70,13 @@ Tested on macOS and Windows.
 
 ### Windows
 
-1. Go to the [Releases](https://github.com/OhadGriner/eye_tracking_poc/releases) page.
+1. Go to the [Releases](https://github.com/OhadGriner/Orbit/releases) page.
 2. Download the `.exe` file from the latest release.
 3. Run it — no installation required.
 
 ### macOS
 
-1. Go to the [Releases](https://github.com/OhadGriner/eye_tracking_poc/releases) page.
+1. Go to the [Releases](https://github.com/OhadGriner/Orbit/releases) page.
 2. Download the `.zip` file from the latest release.
 3. Extract the zip to get the `.app` bundle.
 4. Move the `.app` to your Applications folder (optional).
